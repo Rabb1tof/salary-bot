@@ -1,0 +1,57 @@
+# Go build outputs
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go coverage
+coverage*
+*.coverprofile
+*.cov
+
+# Go modules vendor (uncomment if you vendor)
+# /vendor/
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment/config
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+salary-bot.db
+
+# Cache
+**/.cache/
+/tmp/
+
+# Backups
+*.bak
+*.old
+
+# Local data
+/data/
+/uploads/
