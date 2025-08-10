@@ -2,10 +2,11 @@ package telegram
 
 import (
 	"log"
-	"fmt"
 	"salary-bot/internal/app/service"
 	"salary-bot/internal/domain"
 	"salary-bot/pkg/calendar"
+	"salary-bot/internal/delivery/telegram/router"
+	"salary-bot/internal/delivery/telegram/flows"
 	"strconv"
 	"strings"
 	"time"
@@ -22,32 +23,15 @@ type Handler struct {
 	waitingAmount map[int64]time.Time // chatID -> дата смены
 }
 
-// buildMonthKeyboard строит простой выбор месяца для указанного года
-func buildMonthKeyboard(year int) (string, *telebot.ReplyMarkup) {
-    markup := &telebot.ReplyMarkup{}
-    // Ряд месяцев: 3 колонки по 4 строки
-    monthNames := []string{"Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"}
-    rows := []telebot.Row{}
-    for i := 0; i < 12; i += 3 {
-        b1 := markup.Data(monthNames[i], "pick_month", fmt.Sprintf("%04d-%02d", year, i+1))
-        b2 := markup.Data(monthNames[i+1], "pick_month", fmt.Sprintf("%04d-%02d", year, i+2))
-        b3 := markup.Data(monthNames[i+2], "pick_month", fmt.Sprintf("%04d-%02d", year, i+3))
-        rows = append(rows, markup.Row(b1, b2, b3))
-    }
-    // Навигация по годам
-    prev := markup.Data("← "+strconv.Itoa(year-1), "month_prev", strconv.Itoa(year))
-    next := markup.Data(strconv.Itoa(year+1)+" →", "month_next", strconv.Itoa(year))
-    rows = append(rows, markup.Row(prev, next))
-    // Собираем клавиатуру одним вызовом
-    markup.Inline(rows...)
-    title := fmt.Sprintf("Выберите месяц: %d", year)
-    return title, markup
-}
-
 // Новая Register с инлайн-кнопками и календарём
 func (h *Handler) Register() {
 	h.Bot.Handle("/start", h.handleStart)
 	h.Bot.Handle("/employees", h.handleEmployees)
+
+	// Callback router for SOLID decomposition (first step: salary flows)
+	r := router.New()
+	r.CalDelegate = h.RegisterHandlersCallback
+	flows.RegisterSalary(r, h.Shifts)
 
 	// Единый обработчик инлайн-кнопок
 	h.Bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
@@ -55,17 +39,18 @@ func (h *Handler) Register() {
         raw := c.Data()
         raw = strings.TrimPrefix(raw, "\f")
         key := raw
-        payload := ""
         if i := strings.IndexByte(raw, '|'); i >= 0 {
             key = raw[:i]
-            if len(raw) > i+1 {
-                payload = raw[i+1:]
-            }
         }
 		// Логируем при отладке
 		log.Printf("[callback] raw=%q key=%q", raw, key)
 		// Отвечаем на callback, чтобы Telegram убрал часики
 		_ = c.Respond()
+
+		// Попытаться обработать через роутер (salary-related)
+		if handled, err := func() (bool, error) { return r.Dispatch(c) }(); handled {
+			return err
+		}
 		// Делегируем календарные callback-коды
 		if strings.HasPrefix(key, "cal_") {
 			if h.Calendar != nil {
@@ -144,52 +129,6 @@ func (h *Handler) Register() {
 					return nil
 				}
 				return h.Calendar.ShowCalendar(c)
-			}
-			return nil
-		case "salary_other_month":
-			// Простой выбор месяца: кнопки месяцев и навигация по годам
-			year := time.Now().Year()
-			title, markup := buildMonthKeyboard(year)
-			if err := c.Edit(title, markup); err != nil {
-				_ = c.Send(title, markup)
-			}
-			return nil
-		case "month_prev":
-			// payload: YYYY (текущий год)
-			y, _ := strconv.Atoi(payload)
-			y--
-			title, markup := buildMonthKeyboard(y)
-			if err := c.Edit(title, markup); err != nil {
-				_ = c.Send(title, markup)
-			}
-			return nil
-		case "month_next":
-			// payload: YYYY (текущий год)
-			y, _ := strconv.Atoi(payload)
-			y++
-			title, markup := buildMonthKeyboard(y)
-			if err := c.Edit(title, markup); err != nil {
-				_ = c.Send(title, markup)
-			}
-			return nil
-		case "pick_month":
-			// payload: YYYY-MM
-			parts := strings.Split(payload, "-")
-			if len(parts) != 2 {
-				return nil
-			}
-			y, _ := strconv.Atoi(parts[0])
-			m, _ := strconv.Atoi(parts[1])
-			empID := int(c.Sender().ID)
-			from := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
-			to := time.Date(y, time.Month(m)+1, 0, 0, 0, 0, 0, time.UTC)
-			total, err := h.Shifts.CalculateSalary(empID, from, to)
-			if err != nil {
-				return c.Send("Ошибка при расчёте зарплаты: " + err.Error())
-			}
-			msg := fmt.Sprintf("Зарплата за %02d.%04d: %.2f", int(m), y, total)
-			if err := c.Edit(msg); err != nil {
-				_ = c.Send(msg)
 			}
 			return nil
 		case "salary_range":
