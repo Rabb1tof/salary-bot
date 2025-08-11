@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("Ошибка миграции: %v", err)
 	}
 
-	// Инициализация worker pool
+	
 	pool := workerpool.NewWorkerPool(4, 32)
 	defer pool.Close()
 
@@ -49,10 +49,10 @@ func main() {
 		log.Fatalf("Ошибка запуска бота: %v", err)
 	}
 
-	// Удалено лишнее логирование апдейтов
+	
 
 	calendarController := &calendar.CalendarController{Bot: bot}
-	// log.Println("[INIT] Registering calendar handlers...")
+	
 	handler := &telegram.Handler{
 		Bot:       bot,
 		Shifts:    shiftService,

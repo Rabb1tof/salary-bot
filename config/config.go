@@ -10,7 +10,7 @@ type Config struct {
 	TelegramToken string
 }
 
-// LoadConfig загружает конфиг из .env (если есть) и переменных окружения
+
 func LoadConfig() (*Config, error) {
 	_ = godotenv.Load()
 	token := os.Getenv("TELEGRAM_TOKEN")

@@ -4,9 +4,9 @@ import (
 	"context"
 )
 
-// Task описывает универсальную задачу для пула
-// fn должен быть безопасен для конкурентного выполнения
-// resultCh — канал для возврата результата (если нужен)
+
+
+
 type Task struct {
 	Fn      func() (any, error)
 	ResultC chan Result
@@ -23,7 +23,7 @@ type WorkerPool struct {
 	cancel context.CancelFunc
 }
 
-// NewWorkerPool создаёт пул с N воркерами
+
 func NewWorkerPool(workerCount int, queueSize int) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
@@ -51,12 +51,12 @@ func (wp *WorkerPool) worker() {
 	}
 }
 
-// Submit отправляет задачу в пул. Если нужен результат — передайте канал.
+
 func (wp *WorkerPool) Submit(task Task) {
 	wp.tasks <- task
 }
 
-// Close завершает работу пула
+
 func (wp *WorkerPool) Close() {
 	wp.cancel()
 	close(wp.tasks)

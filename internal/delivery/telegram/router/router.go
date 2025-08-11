@@ -22,7 +22,7 @@ func (r *CallbackRouter) Register(key string, h HandlerFunc) {
     r.handlers[key] = h
 }
 
-// Attach registers a single OnCallback handler that normalizes callback data and dispatches to registered handlers.
+
 func (r *CallbackRouter) Attach(bot *telebot.Bot) {
     bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
         raw := c.Data()
@@ -51,8 +51,8 @@ func (r *CallbackRouter) Attach(bot *telebot.Bot) {
     })
 }
 
-// Dispatch routes a single callback update without registering a handler on the bot.
-// It mirrors the normalization logic from Attach. Returns whether it was handled and any error.
+
+
 func (r *CallbackRouter) Dispatch(c telebot.Context) (bool, error) {
     raw := c.Data()
     raw = strings.TrimPrefix(raw, "\f")

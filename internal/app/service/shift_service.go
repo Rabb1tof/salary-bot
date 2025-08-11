@@ -18,7 +18,7 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 	if err != nil {
 		return err
 	}
-	// Оставляем только невыплаченные смены
+	
 	unpaid := make([]domain.DomainShift, 0, len(shifts))
 	for _, sh := range shifts {
 		if !sh.Paid {
@@ -28,7 +28,7 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 	if len(unpaid) == 0 || amount <= 0 {
 		return nil
 	}
-	// Сортируем по сумме (возрастание), затем по дате (старее раньше)
+	
 	sort.Slice(unpaid, func(i, j int) bool {
 		if unpaid[i].Amount == unpaid[j].Amount {
 			return unpaid[i].Date.Before(unpaid[j].Date)
@@ -46,20 +46,20 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 			}
 		}
 	}
-	// Отметить выбранные смены как выплаченные
+	
 	for _, id := range idsToPay {
 		if err := s.Repo.(interface{ MarkShiftPaidByID(id int) error }).MarkShiftPaidByID(id); err != nil {
 			return err
 		}
 	}
-	// Если осталась непокрытая часть выплаты, уменьшаем сумму у самой ранней из оставшихся невыплаченных смен
+	
 	if remaining > 0 {
-		// сформируем сет уже оплаченных id
+		
 		paidSet := make(map[int]struct{}, len(idsToPay))
 		for _, id := range idsToPay {
 			paidSet[id] = struct{}{}
 		}
-		// Найдём самую раннюю невыплаченную смену, которую мы не закрыли полностью
+		
 		var earliest *domain.DomainShift
 		for i := range unpaid {
 			sh := &unpaid[i]
@@ -73,7 +73,7 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 		if earliest != nil {
 			newAmount := earliest.Amount - remaining
 			if newAmount <= 0 {
-				// На всякий случай, если остаток перекрывает сумму — пометим как оплачено
+				
 				if err := s.Repo.(interface{ MarkShiftPaidByID(id int) error }).MarkShiftPaidByID(earliest.ID); err != nil {
 					return err
 				}
@@ -118,8 +118,8 @@ func (s *ShiftServiceImpl) GetShifts(employeeID int, from, to time.Time) ([]doma
 }
 
 func (s *ShiftServiceImpl) CalculateUnpaidSalary(employeeID int) (float64, error) {
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC) // минимальная дата
-	to := time.Now().AddDate(10, 0, 0)                  // максимальная дата в будущем
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC) 
+	to := time.Now().AddDate(10, 0, 0)                  
 	shifts, err := s.Repo.GetShifts(employeeID, from, to)
 	if err != nil {
 		return 0, err

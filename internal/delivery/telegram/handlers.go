@@ -19,42 +19,42 @@ type Handler struct {
 	Async         *service.AsyncService
 	Employees     *service.EmployeeService
 	Calendar      *calendar.CalendarController
-	waitingAmount map[int64]time.Time // chatID -> дата смены
-	waitingPayout map[int64]bool      // chatID -> ждём сумму выплаты
+	waitingAmount map[int64]time.Time 
+	waitingPayout map[int64]bool      
 }
 
-// Новая Register с инлайн-кнопками и календарём
+
 func (h *Handler) Register() {
 	h.Bot.Handle("/start", h.handleStart)
 	h.Bot.Handle("/employees", h.handleEmployees)
 
-	// Callback router for SOLID decomposition (first step: salary flows)
+	
 	r := router.New()
 	r.CalDelegate = h.RegisterHandlersCallback
 	flows.RegisterSalary(r, h.Shifts)
 
-	// Единый обработчик инлайн-кнопок
+	
 	h.Bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
-        // Нормализуем callback-данные: удаляем префикс "\f" и отделяем payload после '|'
+        
         raw := c.Data()
         raw = strings.TrimPrefix(raw, "\f")
         key := raw
         if i := strings.IndexByte(raw, '|'); i >= 0 {
             key = raw[:i]
         }
-		// Логируем при отладке
+		
 		log.Printf("[callback] raw=%q key=%q", raw, key)
-		// Отвечаем на callback, чтобы Telegram убрал часики
+		
 		_ = c.Respond()
 
-		// Попытаться обработать через роутер (salary-related)
+		
 		if handled, err := func() (bool, error) { return r.Dispatch(c) }(); handled {
 			return err
 		}
-		// Делегируем календарные callback-коды
+		
 		if strings.HasPrefix(key, "cal_") {
 			if h.Calendar != nil {
-				// Вызовем обработчик календаря вручную
+				
 				return h.RegisterHandlersCallback(c)
 			}
 			return nil
@@ -96,7 +96,7 @@ func (h *Handler) Register() {
 			}
 			return nil
 		case "cancel_flow":
-			// Clear any waiting states
+			
 			if h.waitingAmount != nil {
 				delete(h.waitingAmount, c.Chat().ID)
 			}
@@ -119,18 +119,18 @@ func (h *Handler) Register() {
 			if err := c.Edit("Выплачено всё!"); err != nil {
 				_ = c.Send("Выплачено всё!")
 			}
-			// выходим из режима выплаты, если он был
+			
 			if h.waitingPayout != nil {
 				delete(h.waitingPayout, c.Chat().ID)
 			}
 			return nil
 		case "salary_range":
-			// Попросим выбрать начальную дату, затем конечную; используем замыкания
+			
 			if h.Calendar != nil {
 				c.Send("Выберите начальную дату диапазона")
 				h.Calendar.OnDate = func(start time.Time, c telebot.Context) error {
 					_ = c.Send("Начало: " + start.Format("02.01.2006") + "\nТеперь выберите конечную дату")
-					// Второй шаг: выбор конца
+					
 					h.Calendar.OnDate = func(end time.Time, c telebot.Context) error {
 						if end.Before(start) {
 							start, end = end, start
@@ -138,7 +138,7 @@ func (h *Handler) Register() {
 						empID := int(c.Sender().ID)
 						from := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 						to := time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 0, time.UTC)
-						// Получим смены и посчитаем сумму
+						
 						shifts, err := h.Shifts.GetShifts(empID, from, to)
 						if err != nil {
 							return c.Send("Ошибка при получении смен: " + err.Error())
@@ -158,13 +158,13 @@ func (h *Handler) Register() {
 		return nil
 	})
 
-	// Единый обработчик текстовых сообщений
+	
 	h.Bot.Handle(telebot.OnText, func(c telebot.Context) error {
 		chatID := c.Chat().ID
-		// Нормализуем текст
+		
 		txt := strings.TrimSpace(strings.ToLower(c.Text()))
 
-		// Ключевые слова для отмены и выхода из состояния
+		
 		switch txt {
 		case "отмена", "cancel", "/cancel", "стоп", "/stop":
 			if h.waitingAmount != nil {
@@ -175,15 +175,15 @@ func (h *Handler) Register() {
 			}
 			return c.Send("Действие отменено. Выберите команду из меню.")
 		}
-		        // Обработка командных текстов К ДОБАВЛЕНИЮ/ЗП/ВЫПЛАТЕ — ДО проверки состояний,
-        // чтобы нажатие пунктов меню переводило состояние, а не приводило к ошибкам ввода суммы.
+		        
+        
         if c.Text() == "➕ Добавить смену" {
             markup := &telebot.ReplyMarkup{}
             btnCancel := markup.Data("❌ Отмена", "cancel_flow")
             btnToday := markup.Data("📅 Сегодня", "addshift_today")
             btnOther := markup.Data("📆 Другая дата", "addshift_other")
             markup.Inline(markup.Row(btnToday, btnOther), markup.Row(btnCancel))
-            // выход из режима выплаты и ожидания суммы смены (новый сценарий)
+            
             if h.waitingPayout != nil {
                 delete(h.waitingPayout, chatID)
             }
@@ -193,7 +193,7 @@ func (h *Handler) Register() {
             return c.Send("Это сегодняшняя смена?", markup)
         }
         if c.Text() == "💰 Зарплата" {
-            // Очистим все ожидания перед показом зарплаты
+            
             if h.waitingPayout != nil {
                 delete(h.waitingPayout, chatID)
             }
@@ -229,14 +229,14 @@ func (h *Handler) Register() {
             btnCancel := markup.Data("❌ Отмена", "cancel_flow")
             btnAll := markup.Data("✅ Выплатить всё", "payout_all")
             markup.Inline(markup.Row(btnAll), markup.Row(btnCancel))
-            // сбрасываем ожидание суммы смены и включаем режим выплаты
+            
             if h.waitingAmount != nil { delete(h.waitingAmount, chatID) }
             if h.waitingPayout == nil { h.waitingPayout = make(map[int64]bool) }
             h.waitingPayout[chatID] = true
             return c.Send("Сколько выплатить? Введите сумму, выберите 'Выплатить всё' или напишите 'отмена' для выхода.", markup)
         }
 
-        // Если ожидается сумма для смены
+        
         if h.waitingAmount != nil {
             if date, ok := h.waitingAmount[chatID]; ok {
                 amount, err := strconv.ParseFloat(c.Text(), 64)
@@ -259,7 +259,7 @@ func (h *Handler) Register() {
                 return c.Send("Смена добавлена!")
             }
         }
-        // Если ожидается сумма для выплаты — обрабатываем только в этом состоянии
+        
         if h.waitingPayout != nil {
             if _, ok := h.waitingPayout[chatID]; ok {
                 empID := int(c.Sender().ID)
@@ -276,7 +276,7 @@ func (h *Handler) Register() {
                     m.Inline(m.Row(btnCancel))
                     return c.Send("Сумма выплаты должна быть не менее 1. Введите сумму ещё раз.", m)
                 }
-                // Посчитаем доступную к выплате сумму (невыплаченные смены)
+                
                 allFrom := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
                 allTo := time.Now().AddDate(10, 0, 0)
                 allShifts, err := h.Shifts.GetShifts(empID, allFrom, allTo)
@@ -304,7 +304,7 @@ func (h *Handler) Register() {
     })
 }
 
-// Делегирующий обработчик для календаря (вызывается вручную из OnCallback)
+
 func (h *Handler) RegisterHandlersCallback(c telebot.Context) error {
     if h.Calendar != nil {
         raw := c.Data()
@@ -357,16 +357,16 @@ func (h *Handler) RegisterHandlersCallback(c telebot.Context) error {
 	return nil
 }
 
-// Старт: показать главное меню и сбросить состояния
+
 func (h *Handler) handleStart(c telebot.Context) error {
-    // Сброс состояний ожидания
+    
     if h.waitingAmount != nil {
         delete(h.waitingAmount, c.Chat().ID)
     }
     if h.waitingPayout != nil {
         delete(h.waitingPayout, c.Chat().ID)
     }
-    // Главное меню с reply-клавиатурой
+    
     m := &telebot.ReplyMarkup{ResizeKeyboard: true}
     btnAdd := m.Text("➕ Добавить смену")
     btnSalary := m.Text("💰 Зарплата")
@@ -375,9 +375,9 @@ func (h *Handler) handleStart(c telebot.Context) error {
     return c.Send("Выберите действие:", m)
 }
 
-// Простой заглушечный обработчик списка сотрудников
+
 func (h *Handler) handleEmployees(c telebot.Context) error {
     return c.Send("Список сотрудников пока недоступен.")
 }
 
-// Inline-кнопки
+

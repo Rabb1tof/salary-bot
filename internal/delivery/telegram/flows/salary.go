@@ -13,7 +13,7 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-// RegisterSalary wires salary-related callback handlers into the router
+
 func RegisterSalary(r *router.CallbackRouter, shifts *service.ShiftServiceImpl) {
 	r.Register("salary_other_month", func(c telebot.Context, payload string) error {
 		year := time.Now().Year()

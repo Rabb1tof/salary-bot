@@ -9,19 +9,19 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-// CalendarController реализует обработку inline-календаря
+
 type CalendarController struct {
 	Bot    *telebot.Bot
 	OnDate func(time.Time, telebot.Context) error
 }
 
-// ShowCalendar отправляет или редактирует инлайн-календарь для выбора даты с переключением месяцев
+
 func (cc *CalendarController) ShowCalendar(c telebot.Context) error {
 	now := time.Now()
 	return SendCalendar(c, now.Year(), int(now.Month()))
 }
 
-// SendCalendar строит и отправляет календарь за указанный месяц
+
 func SendCalendar(c telebot.Context, year, month int) error {
 	markup := &telebot.ReplyMarkup{}
 	days := daysInMonth(year, month)
@@ -67,7 +67,7 @@ func SendCalendar(c telebot.Context, year, month int) error {
 	return c.Send(title, markup)
 }
 
-// RegisterHandlers регистрирует callback-хендлеры для календаря
+
 func (cc *CalendarController) RegisterHandlers() {
 	cc.Bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
 		if c.Callback() == nil {
@@ -80,9 +80,9 @@ func (cc *CalendarController) RegisterHandlers() {
 			return nil
 		}
 		payload := split[1]
-		// cal_day
+		
 		if split[0] == "cal_day" {
-			//log.Println("[calendar] cal_day callback received, payload:", payload)
+			
 			parts := SplitDateData(payload)
 			if len(parts) != 3 {
 				return c.Send("Ошибка даты", &telebot.ReplyMarkup{})
@@ -96,7 +96,7 @@ func (cc *CalendarController) RegisterHandlers() {
 			}
 			return c.Send("Ошибка даты", &telebot.ReplyMarkup{})
 		}
-		// cal_prev
+		
 		if split[0] == "cal_prev" {
 			log.Println("[calendar] cal_prev callback received, payload:", payload)
 			parts := SplitDateData(payload)
@@ -111,9 +111,9 @@ func (cc *CalendarController) RegisterHandlers() {
 			}
 			return SendCalendar(c, year, month)
 		}
-		// cal_next
+		
 		if split[0] == "cal_next" {
-			//log.Println("[calendar] cal_next callback received, payload:", payload)
+			
 			parts := SplitDateData(payload)
 			if len(parts) != 2 {
 				return c.Send("Ошибка месяца", &telebot.ReplyMarkup{})
@@ -130,7 +130,7 @@ func (cc *CalendarController) RegisterHandlers() {
 	})
 }
 
-// SplitDateData разбивает строку даты на части
+
 func SplitDateData(data string) []string {
 	return strings.Split(data, "-")
 }
