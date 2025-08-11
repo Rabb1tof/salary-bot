@@ -1,4 +1,4 @@
-# salary-bot
+# salary-bot [![Go CI](https://github.com/Rabb1tof/salary-bot/actions/workflows/go.yml/badge.svg)](https://github.com/Rabb1tof/salary-bot/actions/workflows/go.yml)
 
 Telegram-бот для учёта и выплат зарплаты в общепите. Реализован на Go с использованием чистой архитектуры, SQLite, worker pool, каналов, inline-календаря и кнопок.
 
