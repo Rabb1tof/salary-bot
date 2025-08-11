@@ -59,6 +59,7 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 		for _, id := range idsToPay {
 			paidSet[id] = struct{}{}
 		}
+
 		
 		var earliest *domain.DomainShift
 		for i := range unpaid {
@@ -71,16 +72,33 @@ func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) 
 			}
 		}
 		if earliest != nil {
-			newAmount := earliest.Amount - remaining
-			if newAmount <= 0 {
+			
+			
+			
+			if remaining >= earliest.Amount {
 				
 				if err := s.Repo.(interface{ MarkShiftPaidByID(id int) error }).MarkShiftPaidByID(earliest.ID); err != nil {
 					return err
 				}
+				remaining -= earliest.Amount
 			} else {
-				if err := s.Repo.(interface{ UpdateShiftAmount(id int, amount float64) error }).UpdateShiftAmount(earliest.ID, newAmount); err != nil {
+				paidPortion := remaining
+				newUnpaidAmount := earliest.Amount - paidPortion
+				
+				if err := s.Repo.(interface{ UpdateShiftAmount(id int, amount float64) error }).UpdateShiftAmount(earliest.ID, newUnpaidAmount); err != nil {
 					return err
 				}
+				
+				paidShift := domain.DomainShift{
+					EmployeeID: employeeID,
+					Date:       earliest.Date,
+					Amount:     paidPortion,
+					Paid:       true,
+				}
+				if err := s.Repo.AddShift(paidShift); err != nil {
+					return err
+				}
+				remaining = 0
 			}
 		}
 	}
