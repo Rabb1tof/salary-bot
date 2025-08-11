@@ -27,6 +27,7 @@ type Handler struct {
 func (h *Handler) Register() {
 	h.Bot.Handle("/start", h.handleStart)
 	h.Bot.Handle("/employees", h.handleEmployees)
+	h.Bot.Handle("/resetme", h.handleResetMe)
 
 	
 	r := router.New()
@@ -47,19 +48,31 @@ func (h *Handler) Register() {
 		
 		_ = c.Respond()
 
-		
+		// Handle calendar callbacks by prefix and exit early
+        if strings.HasPrefix(key, "cal_") {
+            if h.Calendar != nil {
+                return h.RegisterHandlersCallback(c)
+            }
+            return nil
+        }
+
 		if handled, err := func() (bool, error) { return r.Dispatch(c) }(); handled {
 			return err
 		}
 		
-		if strings.HasPrefix(key, "cal_") {
-			if h.Calendar != nil {
-				
-				return h.RegisterHandlersCallback(c)
+		switch key {
+		case "resetme_confirm":
+			empID := int(c.Sender().ID)
+			if err := h.Shifts.ResetEmployeeData(empID); err != nil {
+				return c.Send("Ошибка при сбросе данных: "+err.Error())
+			}
+			// clear any waiting states
+			if h.waitingAmount != nil { delete(h.waitingAmount, c.Chat().ID) }
+			if h.waitingPayout != nil { delete(h.waitingPayout, c.Chat().ID) }
+			if err := c.Edit("Ваши данные удалены.", &telebot.ReplyMarkup{}); err != nil {
+				_ = c.Send("Ваши данные удалены.")
 			}
 			return nil
-		}
-		switch key {
 		case "addshift_today":
 			date := time.Now()
 			log.Printf("[callback] addshift_today chat=%d date=%s", c.Chat().ID, date.Format("2006-01-02"))
@@ -378,6 +391,29 @@ func (h *Handler) handleStart(c telebot.Context) error {
 
 func (h *Handler) handleEmployees(c telebot.Context) error {
     return c.Send("Список сотрудников пока недоступен.")
+}
+
+// /resetme — удалить ВСЕ смены текущего пользователя (по его Telegram ID -> employeeID)
+func (h *Handler) handleResetMe(c telebot.Context) error {
+    empID := int(c.Sender().ID)
+    // Шаг 1: подтверждение
+    if len(c.Args()) == 0 {
+        m := &telebot.ReplyMarkup{}
+        yes := m.Data("✅ Да, удалить", "resetme_confirm")
+        no := m.Data("❌ Отмена", "cancel_flow")
+        m.Inline(m.Row(yes), m.Row(no))
+        return c.Send("Удалить все ваши смены и выплаты? Это действие необратимо.", m)
+    }
+    // Непосредственное подтверждение через аргумент, например: /resetme confirm
+    if len(c.Args()) > 0 && strings.EqualFold(c.Args()[0], "confirm") {
+        if err := h.Shifts.ResetEmployeeData(empID); err != nil {
+            return c.Send("Ошибка при сбросе данных: "+err.Error())
+        }
+        if h.waitingAmount != nil { delete(h.waitingAmount, c.Chat().ID) }
+        if h.waitingPayout != nil { delete(h.waitingPayout, c.Chat().ID) }
+        return c.Send("Ваши данные удалены.")
+    }
+    return c.Send("Чтобы подтвердить, нажмите кнопку или выполните: /resetme confirm")
 }
 
 

@@ -73,3 +73,8 @@ func (r *SqliteShiftRepo) UpdateShiftAmount(id int, amount float64) error {
 	_, err := r.db.Exec(`UPDATE shifts SET amount = ? WHERE id = ?`, amount, id)
 	return err
 }
+
+func (r *SqliteShiftRepo) DeleteByEmployee(employeeID int) error {
+	_, err := r.db.Exec(`DELETE FROM shifts WHERE employee_id = ?`, employeeID)
+	return err
+}

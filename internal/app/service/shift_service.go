@@ -11,6 +11,11 @@ type ShiftServiceImpl struct {
 	Repo domain.ShiftRepo
 }
 
+// ResetEmployeeData removes all shifts for a given employee.
+func (s *ShiftServiceImpl) ResetEmployeeData(employeeID int) error {
+    return s.Repo.DeleteByEmployee(employeeID)
+}
+
 func (s *ShiftServiceImpl) MarkShiftsPaidAmount(employeeID int, amount float64) error {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Now().AddDate(10, 0, 0)

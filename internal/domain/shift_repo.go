@@ -16,4 +16,5 @@ type ShiftRepo interface {
 	MarkShiftsPaid(employeeID int, from, to time.Time) error
 	MarkShiftPaidByID(id int) error
 	UpdateShiftAmount(id int, amount float64) error
+	DeleteByEmployee(employeeID int) error
 }
